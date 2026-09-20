@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dorm Manager</title><link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="login" style="max-width:420px;margin:80px auto;background:white;padding:30px;border-radius:14px;box-shadow:0 2px 12px #0002">
+<h2>🔐 เข้าสู่ระบบผู้ดูแล</h2><p>ระบบนี้มีผู้ดูแลเพียงบัญชีเดียว</p>
+<form onsubmit="login(event)"><label>ชื่อผู้ใช้<input id="username" value="admin" required></label><label>รหัสผ่าน<input id="password" type="password" required></label><button>เข้าสู่ระบบ</button></form><p id="loginError" class="bad"></p>
+</div>
+<div id="system" style="display:none">
+<header><h1>🏠 Dorm Manager</h1><span>ระบบจัดการหอพักส่วนตัว</span></header>
+<nav>
+<button onclick="show('dashboard')">ภาพรวม</button><button onclick="show('rooms')">ห้องพัก</button>
+<button onclick="show('tenants')">ผู้เช่า</button><button onclick="show('bills')">บิล/ชำระเงิน</button><button onclick="show('settings')">ตั้งค่าระบบ</button><button onclick="logout()">ออกจากระบบ</button>
+</nav>
+<main id="app"></main>
+</div><script src="app.js"></script>
+</body></html>
