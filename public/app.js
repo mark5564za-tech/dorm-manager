@@ -73,6 +73,7 @@ async function saveTenant(e,id){
 }
 async function delTenant(id){if(!confirm("ลบผู้เช่ารายนี้?"))return;await send("/api/tenants/"+id,"DELETE",{});tenants()}
 function billStatus(s){return s==="ชำระแล้ว"?'<span class="bill-status paid">ชำระแล้ว</span>':'<span class="bill-status unpaid">ค้างชำระ</span>'}
+
 async function bills(){
  const [b,t]=await Promise.all([get("/api/bills"),get("/api/tenants")]);
  const exportMonth=new Date().toISOString().slice(0,7);
