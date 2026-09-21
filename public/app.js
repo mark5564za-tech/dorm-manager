@@ -44,9 +44,25 @@ async function editRoom(id){
 }
 async function tenants(){
  const [t,r]=await Promise.all([get("/api/tenants"),get("/api/rooms")]);
- $("#app").innerHTML="<h2>ผู้เช่า</h2><div class='panel'><h3>เพิ่มผู้เช่า</h3><form onsubmit='addTenant(event)'><div class='grid'><label>ชื่อ<input name='name' required></label><label>โทรศัพท์<input name='phone'></label><label>LINE User ID<input name='line_user_id' placeholder='ถ้ามี'></label><label>ห้อง<select name='room_id'><option value=''>ไม่ระบุ</option>"+r.filter(x=>x.status==="ว่าง").map(x=>"<option value='"+x.id+"'>ห้อง "+x.room_no+"</option>").join("")+"</select></label></div><button>บันทึกผู้เช่า</button></form></div><div class='panel'><table><tr><th>ห้อง</th><th>ชื่อ</th><th>โทร</th><th>LINE</th><th></th></tr>"+t.map(x=>"<tr><td>"+(x.room_no||"-")+"</td><td>"+x.name+"</td><td>"+x.phone+"</td><td>"+(x.line_user_id?"เชื่อมแล้ว":"-")+"</td><td><button onclick='delTenant("+x.id+")'>ลบ</button></td></tr>").join("")+"</table></div>"
+ $("#app").innerHTML="<h2>ผู้เช่า</h2><div class='panel'><h3>เพิ่มผู้เช่า</h3><form onsubmit='addTenant(event)'><div class='grid'><label>ชื่อ<input name='name' required></label><label>โทรศัพท์<input name='phone'></label><label>LINE User ID<input name='line_user_id' placeholder='ถ้ามี'></label><label>ห้อง<select name='room_id'><option value=''>ไม่ระบุ</option>"+r.filter(x=>x.status==="ว่าง").map(x=>"<option value='"+x.id+"'>ห้อง "+x.room_no+"</option>").join("")+"</select></label></div><button>บันทึกผู้เช่า</button></form></div><div class='panel'><table><tr><th>ห้อง</th><th>ชื่อ</th><th>โทร</th><th>LINE</th><th>จัดการ</th></tr>"+t.map(x=>"<tr><td>"+(x.room_no||"-")+"</td><td>"+x.name+"</td><td>"+x.phone+"</td><td>"+(x.line_user_id?"เชื่อมแล้ว":"-")+"</td><td><button onclick='editTenant("+x.id+")'>แก้ไข</button> <button onclick='delTenant("+x.id+")'>ลบ</button></td></tr>").join("")+"</table></div>"
 }
 async function addTenant(e){e.preventDefault();const f=new FormData(e.target);const d=Object.fromEntries(f.entries());d.room_id=d.room_id?Number(d.room_id):null;await send("/api/tenants","POST",d);tenants()}
+async function editTenant(id){
+ const [t,r]=await Promise.all([get("/api/tenants"),get("/api/rooms")]);
+ const x=t.find(a=>a.id===id);if(!x)return;
+ const name=prompt("ชื่อผู้เช่า",x.name);if(name===null)return;
+ const phone=prompt("โทรศัพท์",x.phone||"");if(phone===null)return;
+ const line_user_id=prompt("LINE User ID",x.line_user_id||"");if(line_user_id===null)return;
+ const id_card=prompt("เลขบัตรประชาชน",x.id_card||"");if(id_card===null)return;
+ const move_in=prompt("วันที่เข้าพัก (YYYY-MM-DD)",x.move_in||"");if(move_in===null)return;
+ const deposit=prompt("เงินประกัน",x.deposit||0);if(deposit===null)return;
+ const note=prompt("หมายเหตุ",x.note||"");if(note===null)return;
+ const roomText=prompt("เลขห้อง (เช่น 101) หรือเว้นว่างเพื่อไม่ระบุ",x.room_no||"");if(roomText===null)return;
+ const room=r.find(a=>a.room_no===roomText.trim() && (a.status==="ว่าง" || a.id===x.room_id));
+ if(roomText.trim() && !room){alert("ไม่พบห้องว่างหรือห้องเดิม");return}
+ await send("/api/tenants/"+id,"PUT",{name,phone,line_user_id,id_card,move_in,deposit:Number(deposit||0),note,room_id:room?room.id:null});
+ tenants();
+}
 async function delTenant(id){if(!confirm("ลบผู้เช่ารายนี้?"))return;await send("/api/tenants/"+id,"DELETE",{});tenants()}
 async function bills(){
  const [b,t]=await Promise.all([get("/api/bills"),get("/api/tenants")]);
