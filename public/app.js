@@ -34,7 +34,7 @@ async function dashboard(){
  "<div class='panel'><h3>รายรับเดือนนี้</h3><div class='num'>"+money(d.paid)+" ฿</div></div>"+
  "<div class='panel'><h3>บิลล่าสุด</h3>"+billTable(d.bills)+"</div>";
 }
-function billTable(a){if(!a||!a.length)return "ยังไม่มีบิล";return "<table><tr><th>เดือน</th><th>ห้อง</th><th>ผู้เช่า</th><th>ยอด</th><th>สถานะ</th></tr>"+a.map(b=>"<tr><td>"+b.bill_month+"</td><td>"+(b.room_no||"-")+"</td><td>"+b.name+"</td><td>"+money(b.total)+"</td><td>"+b.status+"</td></tr>").join("")+"</table>"}
+function billTable(a){if(!a||!a.length)return "ยังไม่มีบิล";return "<table><tr><th>เดือน</th><th>ห้อง</th><th>ผู้เช่า</th><th>ยอด</th><th>สถานะ</th></tr>"+a.map(b=>"<tr><td>"+b.bill_month+"</td><td>"+(b.room_no||"-")+"</td><td>"+b.name+"</td><td>"+money(b.total)+"</td><td>"+billStatus(b.status)+"</td></tr>").join("")+"</table>"}
 async function rooms(){
  const r=await get("/api/rooms");
  $("#app").innerHTML="<h2>ห้องพัก</h2><div class='grid'>"+r.map(x=>"<div class='card'><h2>ห้อง "+x.room_no+"</h2><p class='"+(x.status==="ว่าง"?"ok":"bad")+"'>"+x.status+"</p><p>ค่าเช่า: "+money(x.rent)+" บาท/เดือน</p><p>ผู้เช่า: "+(x.name||"-")+"</p><button onclick='editRoom("+x.id+")'>แก้ไข</button></div>").join("")+"</div>"
