@@ -10,6 +10,9 @@ async function login(e){
  $("#login").style.display="none";$("#system").style.display="block";show("dashboard");
 }
 function logout(){localStorage.removeItem("dorm_token");location.reload()}
+function applyTheme(){const dark=localStorage.getItem("dorm_theme")==="dark";document.body.classList.toggle("dark",dark);const b=$("#themeToggle");if(b)b.textContent=dark?"☀️":"🌙"}
+function toggleTheme(){const dark=!document.body.classList.contains("dark");localStorage.setItem("dorm_theme",dark?"dark":"light");applyTheme()}
+applyTheme()
 async function get(u){
  const r=await fetch(u,{headers:{Authorization:"Bearer "+token}});
  if(r.status===401){logout();return {}}
