@@ -116,8 +116,13 @@ async function initDb() {
   if (!await one("SELECT value FROM settings WHERE key='admin_username'"))
     await run("INSERT INTO settings(key,value) VALUES(?,?)", ["admin_username", "admin"]);
   if (Number((await one("SELECT COUNT(*) c FROM rooms")).c) === 0) {
-    for (let i = 101; i <= 108; i++)
-      await run("INSERT INTO rooms(room_no,status,rent) VALUES(?,?,?)", [String(i), "ว่าง", 2800]);
+    for (let i = 1; i <= 8; i++)
+      await run("INSERT INTO rooms(room_no,status,rent) VALUES(?,?,?)", ["R"+i, "ว่าง", 2800]);
+  } else {
+    const roomMap = { "101":"R1", "102":"R2", "103":"R3", "104":"R4", "105":"R5", "106":"R6", "107":"R7", "108":"R8" };
+    for (const [oldNo,newNo] of Object.entries(roomMap)) {
+      try { await run("UPDATE rooms SET room_no=? WHERE room_no=?", [newNo, oldNo]); } catch {}
+    }
   }
 }
 async function api(req, res, url) {
