@@ -23,13 +23,13 @@ async function send(u,method,data){
  if(r.status===401){logout();return {}}
  return r.json();
 }
-async function show(page){if(page==="dashboard")return dashboard();if(page==="rooms")return rooms();if(page==="tenants")return tenants();if(page==="bills")return bills();if(page==="settings")return settings()}
+async function show(page){if(page==="dashboard")return dashboard();if(page==="rooms")return rooms();if(page==="tenants")return tenants();if(page==="bills")return bills();if(page==="meters")return meters();if(page==="settings")return settings()}
 async function dashboard(){
  const d=await get("/api/dashboard");
  $("#app").innerHTML="<h2>ภาพรวม</h2><div class='cards'>"+
  "<div class='card'>ห้องทั้งหมด<div class='num'>"+d.rooms.length+"</div></div>"+
- "<div class='card'>มีผู้เช่า<div class='num'>"+d.occupied+"</div></div>"+
- "<div class='card'>ผู้เช่า<div class='num'>"+d.tenantCount+"</div></div>"+
+ "<div class='card'>ห้องที่มีผู้เช่า<div class='num'>"+d.occupied+"</div></div>"+
+ "<div class='card'>จำนวนผู้เช่า<div class='num'>"+d.tenantCount+"</div></div>"+
  "<div class='card'>ยอดค้างชำระ<div class='num'>"+money(d.unpaid)+" ฿</div></div></div>"+
  "<div class='panel'><h3>รายรับเดือนนี้</h3><div class='num'>"+money(d.paid)+" ฿</div></div>"+
  "<div class='panel'><h3>บิลล่าสุด</h3>"+billTable(d.bills)+"</div>";
@@ -73,6 +73,14 @@ async function saveTenant(e,id){
 }
 async function delTenant(id){if(!confirm("ลบผู้เช่ารายนี้?"))return;await send("/api/tenants/"+id,"DELETE",{});tenants()}
 function billStatus(s){return s==="ชำระแล้ว"?'<span class="bill-status paid">ชำระแล้ว</span>':'<span class="bill-status unpaid">ค้างชำระ</span>'}
+async function meters(){
+ const [m,r]=await Promise.all([get("/api/meter-readings"),get("/api/rooms")]);
+ const current=new Date().toISOString().slice(0,7);
+ $(" #app".trim()).innerHTML="<h2>บันทึกหน่วยน้ำ-ไฟ</h2><div class='panel'><h3>บันทึกเลขมิเตอร์ประจำเดือน</h3><p class='muted'>กรอกเลขครั้งก่อนและเลขปัจจุบัน ระบบจะคำนวณหน่วยที่ใช้ให้อัตโนมัติ</p><form onsubmit='saveMeter(event)'><div class='grid'><label>ห้อง<select name='room_id' required>"+r.map(x=>"<option value='"+x.id+"'>ห้อง "+x.room_no+"</option>").join("")+"</select></label><label>รอบเดือน<input name='reading_month' type='month' value='"+current+"' required></label><label>ไฟ - เลขครั้งก่อน<input name='electricity_prev' type='number' step='0.01' min='0' value='0'></label><label>ไฟ - เลขปัจจุบัน<input name='electricity_current' type='number' step='0.01' min='0' value='0'></label><label>น้ำ - เลขครั้งก่อน<input name='water_prev' type='number' step='0.01' min='0' value='0'></label><label>น้ำ - เลขปัจจุบัน<input name='water_current' type='number' step='0.01' min='0' value='0'></label><label>หมายเหตุ<input name='note'></label></div><button>บันทึกหน่วย</button></form></div><div class='panel'><h3>ประวัติหน่วยน้ำ-ไฟ</h3><table><tr><th>เดือน</th><th>ห้อง</th><th>ไฟครั้งก่อน</th><th>ไฟปัจจุบัน</th><th>ใช้ไฟ</th><th>น้ำครั้งก่อน</th><th>น้ำปัจจุบัน</th><th>ใช้น้ำ</th><th>จัดการ</th></tr>"+m.map(x=>"<tr><td>"+x.reading_month+"</td><td>"+x.room_no+"</td><td>"+x.electricity_prev+"</td><td>"+x.electricity_current+"</td><td><b>"+Math.max(0,Number(x.electricity_current)-Number(x.electricity_prev))+"</b></td><td>"+x.water_prev+"</td><td>"+x.water_current+"</td><td><b>"+Math.max(0,Number(x.water_current)-Number(x.water_prev))+"</b></td><td><button onclick='deleteMeter("+x.id+")'>ลบ</button></td></tr>").join("")+"</table></div>";
+}
+async function saveMeter(e){e.preventDefault();const f=new FormData(e.target);const d=Object.fromEntries(f.entries());d.room_id=Number(d.room_id);["electricity_prev","electricity_current","water_prev","water_current"].forEach(k=>d[k]=Number(d[k]||0));if(d.electricity_current<d.electricity_prev||d.water_current<d.water_prev){alert("เลขปัจจุบันต้องไม่น้อยกว่าเลขครั้งก่อน");return}const r=await send("/api/meter-readings","POST",d);if(!r.ok){alert(r.error||"บันทึกไม่สำเร็จ");return}await meters()}
+async function deleteMeter(id){if(!confirm("ลบบันทึกหน่วยนี้ใช่ไหม?"))return;await send("/api/meter-readings/"+id,"DELETE",{});await meters()}
+
 
 async function bills(){
  const [b,t]=await Promise.all([get("/api/bills"),get("/api/tenants")]);

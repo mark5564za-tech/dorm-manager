@@ -100,6 +100,7 @@ async function initDb() {
         FOREIGN KEY(bill_id) REFERENCES bills(id) ON DELETE CASCADE
       );
       CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
+      CREATE TABLE IF NOT EXISTS meter_readings (id SERIAL PRIMARY KEY, room_id INTEGER NOT NULL, reading_month TEXT NOT NULL, electricity_prev NUMERIC DEFAULT 0, electricity_current NUMERIC DEFAULT 0, water_prev NUMERIC DEFAULT 0, water_current NUMERIC DEFAULT 0, note TEXT DEFAULT '', UNIQUE(room_id, reading_month), FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE);
     `);
   } else {
     sqlite.exec(`
@@ -108,6 +109,7 @@ async function initDb() {
       CREATE TABLE IF NOT EXISTS bills (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER NOT NULL, bill_month TEXT NOT NULL, rent REAL DEFAULT 0, electricity REAL DEFAULT 0, water REAL DEFAULT 0, other REAL DEFAULT 0, total REAL DEFAULT 0, due_date TEXT, status TEXT DEFAULT 'ค้างชำระ', paid_at TEXT, note TEXT DEFAULT '', FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE);
       CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, bill_id INTEGER NOT NULL, amount REAL NOT NULL, paid_at TEXT NOT NULL, method TEXT DEFAULT 'เงินสด', note TEXT DEFAULT '', FOREIGN KEY(bill_id) REFERENCES bills(id) ON DELETE CASCADE);
       CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
+      CREATE TABLE IF NOT EXISTS meter_readings (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id INTEGER NOT NULL, reading_month TEXT NOT NULL, electricity_prev REAL DEFAULT 0, electricity_current REAL DEFAULT 0, water_prev REAL DEFAULT 0, water_current REAL DEFAULT 0, note TEXT DEFAULT '', UNIQUE(room_id, reading_month), FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE);
     `);
     try { sqlite.exec("ALTER TABLE tenants ADD COLUMN line_user_id TEXT DEFAULT ''"); } catch {}
   }
@@ -155,6 +157,21 @@ async function api(req, res, url) {
     return json(res, 200, await all("SELECT t.*,r.room_no FROM tenants t LEFT JOIN rooms r ON r.id=t.room_id ORDER BY t.id DESC"));
   if (method === "GET" && p === "/api/bills")
     return json(res, 200, await all("SELECT b.*,t.name,r.room_no FROM bills b JOIN tenants t ON t.id=b.tenant_id LEFT JOIN rooms r ON r.id=t.room_id ORDER BY b.id DESC"));
+  if (method === "GET" && p === "/api/meter-readings")
+    return json(res, 200, await all("SELECT m.*,r.room_no FROM meter_readings m JOIN rooms r ON r.id=m.room_id ORDER BY m.reading_month DESC,r.room_no"));
+  if (method === "POST" && p === "/api/meter-readings") {
+    const d = await body(req);
+    const roomId = Number(d.room_id), m = d.reading_month || month();
+    if (!roomId) return json(res, 400, { error: "กรุณาเลือกห้อง" });
+    const vals = [roomId,m,Number(d.electricity_prev||0),Number(d.electricity_current||0),Number(d.water_prev||0),Number(d.water_current||0),d.note||""];
+    await run("INSERT INTO meter_readings(room_id,reading_month,electricity_prev,electricity_current,water_prev,water_current,note) VALUES(?,?,?,?,?,?,?) ON CONFLICT(room_id,reading_month) DO UPDATE SET electricity_prev=excluded.electricity_prev,electricity_current=excluded.electricity_current,water_prev=excluded.water_prev,water_current=excluded.water_current,note=excluded.note", vals);
+    return json(res, 200, { ok: true });
+  }
+  if (method === "DELETE" && p.startsWith("/api/meter-readings/")) {
+    await run("DELETE FROM meter_readings WHERE id=?", [Number(p.split("/").pop())]);
+    return json(res, 200, { ok: true });
+  }
+
   if (method === "GET" && p === "/api/settings")
     return json(res, 200, await all("SELECT key,value FROM settings WHERE key IN ('line_channel_token','line_public_url','line_channel_secret') ORDER BY key"));
 
