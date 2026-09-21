@@ -100,8 +100,10 @@ async function initDb() {
         FOREIGN KEY(bill_id) REFERENCES bills(id) ON DELETE CASCADE
       );
       CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
-      CREATE TABLE IF NOT EXISTS meter_readings (id SERIAL PRIMARY KEY, room_id INTEGER NOT NULL, reading_month TEXT NOT NULL, electricity_prev NUMERIC DEFAULT 0, electricity_current NUMERIC DEFAULT 0, water_prev NUMERIC DEFAULT 0, water_current NUMERIC DEFAULT 0, note TEXT DEFAULT '', UNIQUE(room_id, reading_month), FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE);
+      CREATE TABLE IF NOT EXISTS meter_readings (id SERIAL PRIMARY KEY, room_id INTEGER NOT NULL, reading_month TEXT NOT NULL, electricity_prev NUMERIC DEFAULT 0, electricity_current NUMERIC DEFAULT 0, water_prev NUMERIC DEFAULT 0, water_current NUMERIC DEFAULT 0, electricity_rate NUMERIC DEFAULT 0, water_rate NUMERIC DEFAULT 0, note TEXT DEFAULT '', UNIQUE(room_id, reading_month), FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE);
     `);
+    try { await pool.query("ALTER TABLE meter_readings ADD COLUMN electricity_rate NUMERIC DEFAULT 0"); } catch {}
+    try { await pool.query("ALTER TABLE meter_readings ADD COLUMN water_rate NUMERIC DEFAULT 0"); } catch {}
   } else {
     sqlite.exec(`
       CREATE TABLE IF NOT EXISTS rooms (id INTEGER PRIMARY KEY AUTOINCREMENT, room_no TEXT UNIQUE NOT NULL, status TEXT NOT NULL DEFAULT 'ว่าง', rent REAL NOT NULL DEFAULT 2800, note TEXT DEFAULT '');
@@ -109,9 +111,11 @@ async function initDb() {
       CREATE TABLE IF NOT EXISTS bills (id INTEGER PRIMARY KEY AUTOINCREMENT, tenant_id INTEGER NOT NULL, bill_month TEXT NOT NULL, rent REAL DEFAULT 0, electricity REAL DEFAULT 0, water REAL DEFAULT 0, other REAL DEFAULT 0, total REAL DEFAULT 0, due_date TEXT, status TEXT DEFAULT 'ค้างชำระ', paid_at TEXT, note TEXT DEFAULT '', FOREIGN KEY(tenant_id) REFERENCES tenants(id) ON DELETE CASCADE);
       CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, bill_id INTEGER NOT NULL, amount REAL NOT NULL, paid_at TEXT NOT NULL, method TEXT DEFAULT 'เงินสด', note TEXT DEFAULT '', FOREIGN KEY(bill_id) REFERENCES bills(id) ON DELETE CASCADE);
       CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT);
-      CREATE TABLE IF NOT EXISTS meter_readings (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id INTEGER NOT NULL, reading_month TEXT NOT NULL, electricity_prev REAL DEFAULT 0, electricity_current REAL DEFAULT 0, water_prev REAL DEFAULT 0, water_current REAL DEFAULT 0, note TEXT DEFAULT '', UNIQUE(room_id, reading_month), FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE);
+      CREATE TABLE IF NOT EXISTS meter_readings (id INTEGER PRIMARY KEY AUTOINCREMENT, room_id INTEGER NOT NULL, reading_month TEXT NOT NULL, electricity_prev REAL DEFAULT 0, electricity_current REAL DEFAULT 0, water_prev REAL DEFAULT 0, water_current REAL DEFAULT 0, electricity_rate REAL DEFAULT 0, water_rate REAL DEFAULT 0, note TEXT DEFAULT '', UNIQUE(room_id, reading_month), FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE);
     `);
     try { sqlite.exec("ALTER TABLE tenants ADD COLUMN line_user_id TEXT DEFAULT ''"); } catch {}
+    try { sqlite.exec("ALTER TABLE meter_readings ADD COLUMN electricity_rate REAL DEFAULT 0"); } catch {}
+    try { sqlite.exec("ALTER TABLE meter_readings ADD COLUMN water_rate REAL DEFAULT 0"); } catch {}
   }
   if (!await one("SELECT value FROM settings WHERE key='admin_password'"))
     await run("INSERT INTO settings(key,value) VALUES(?,?)", ["admin_password", hashPassword("admin1234")]);
@@ -163,8 +167,8 @@ async function api(req, res, url) {
     const d = await body(req);
     const roomId = Number(d.room_id), m = d.reading_month || month();
     if (!roomId) return json(res, 400, { error: "กรุณาเลือกห้อง" });
-    const vals = [roomId,m,Number(d.electricity_prev||0),Number(d.electricity_current||0),Number(d.water_prev||0),Number(d.water_current||0),d.note||""];
-    await run("INSERT INTO meter_readings(room_id,reading_month,electricity_prev,electricity_current,water_prev,water_current,note) VALUES(?,?,?,?,?,?,?) ON CONFLICT(room_id,reading_month) DO UPDATE SET electricity_prev=excluded.electricity_prev,electricity_current=excluded.electricity_current,water_prev=excluded.water_prev,water_current=excluded.water_current,note=excluded.note", vals);
+    const vals = [roomId,m,Number(d.electricity_prev||0),Number(d.electricity_current||0),Number(d.water_prev||0),Number(d.water_current||0),Number(d.electricity_rate||0),Number(d.water_rate||0),d.note||""];
+    await run("INSERT INTO meter_readings(room_id,reading_month,electricity_prev,electricity_current,water_prev,water_current,electricity_rate,water_rate,note) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(room_id,reading_month) DO UPDATE SET electricity_prev=excluded.electricity_prev,electricity_current=excluded.electricity_current,water_prev=excluded.water_prev,water_current=excluded.water_current,electricity_rate=excluded.electricity_rate,water_rate=excluded.water_rate,note=excluded.note", vals);
     return json(res, 200, { ok: true });
   }
   if (method === "DELETE" && p.startsWith("/api/meter-readings/")) {
