@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import pg from "pg";
+import XLSX from "xlsx";
 
 const { Pool } = pg;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -151,6 +152,19 @@ async function api(req, res, url) {
     return json(res, 200, await all("SELECT b.*,t.name,r.room_no FROM bills b JOIN tenants t ON t.id=b.tenant_id LEFT JOIN rooms r ON r.id=t.room_id ORDER BY b.id DESC"));
   if (method === "GET" && p === "/api/settings")
     return json(res, 200, await all("SELECT key,value FROM settings WHERE key IN ('line_channel_token','line_public_url','line_channel_secret') ORDER BY key"));
+
+  if (method === "GET" && p === "/api/export/payments") {
+    const m = url.searchParams.get("month") || month();
+    const rows = await all("SELECT b.bill_month,t.name,r.room_no,p.amount,p.paid_at,p.method,p.note FROM payments p JOIN bills b ON b.id=p.bill_id JOIN tenants t ON t.id=b.tenant_id LEFT JOIN rooms r ON r.id=t.room_id WHERE substr(p.paid_at,1,7)=? ORDER BY p.paid_at,p.id", [m]);
+    const data = [["เดือน","ห้อง","ผู้เช่า","จำนวนเงิน","วันที่จ่าย","วิธีชำระ","หมายเหตุ"], ...rows.map(x=>[x.bill_month,x.room_no||"-",x.name,Number(x.amount),x.paid_at,x.method||"เงินสด",x.note||""])];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws["!cols"] = [{wch:12},{wch:10},{wch:28},{wch:14},{wch:14},{wch:16},{wch:30}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "การจ่ายเงิน");
+    const buf = XLSX.write(wb, {type:"buffer", bookType:"xlsx"});
+    res.writeHead(200, { "Content-Type":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    return res.end(buf);
+  }
   if (method === "POST" && p === "/api/change-password") {
     const d = await body(req);
     if (!d.new_password || String(d.new_password).length < 8)
