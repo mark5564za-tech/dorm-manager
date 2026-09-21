@@ -38,9 +38,15 @@ async function rooms(){
 }
 async function editRoom(id){
  const r=await get("/api/rooms");const x=r.find(a=>a.id===id);if(!x)return;
- const ns=prompt("สถานะ (ว่าง/ไม่ว่าง)",x.status);if(ns===null)return;
- const nr=prompt("ค่าเช่าต่อเดือน",x.rent);if(nr===null)return;
- await send("/api/rooms/"+id,"PUT",{status:ns,rent:Number(nr)});rooms()
+ const old=document.getElementById("roomModal");if(old)old.remove();
+ const modal=document.createElement("div");modal.id="roomModal";modal.className="modal-backdrop";
+ modal.innerHTML="<div class='modal'><div class='modal-head'><h3>แก้ไขห้อง "+esc(x.room_no)+"</h3><button class='modal-close' onclick='closeRoomModal()'>×</button></div><form onsubmit='saveRoom(event,"+id+")'><label>สถานะ<select name='status'><option "+(x.status==="ว่าง"?"selected":"")+">ว่าง</option><option "+(x.status==="ไม่ว่าง"?"selected":"")+">ไม่ว่าง</option></select></label><label>ค่าเช่าต่อเดือน<input name='rent' type='number' value='"+(x.rent||0)+"' required></label><label>หมายเหตุ<textarea name='note'>"+esc(x.note||"")+"</textarea></label><div class='modal-actions'><button type='button' class='secondary' onclick='closeRoomModal()'>ยกเลิก</button><button type='submit'>บันทึกการแก้ไข</button></div></form></div>";
+ document.body.appendChild(modal);
+}
+function closeRoomModal(){const m=document.getElementById("roomModal");if(m)m.remove()}
+async function saveRoom(e,id){
+ e.preventDefault();const f=new FormData(e.target);const d=Object.fromEntries(f.entries());d.rent=Number(d.rent||0);
+ const r=await send("/api/rooms/"+id,"PUT",d);if(!r.ok){alert(r.error||"บันทึกไม่สำเร็จ");return}closeRoomModal();await rooms();
 }
 async function tenants(){
  const [t,r]=await Promise.all([get("/api/tenants"),get("/api/rooms")]);
