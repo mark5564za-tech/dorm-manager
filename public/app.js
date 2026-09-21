@@ -50,18 +50,17 @@ async function addTenant(e){e.preventDefault();const f=new FormData(e.target);co
 async function editTenant(id){
  const [t,r]=await Promise.all([get("/api/tenants"),get("/api/rooms")]);
  const x=t.find(a=>a.id===id);if(!x)return;
- const name=prompt("ชื่อผู้เช่า",x.name);if(name===null)return;
- const phone=prompt("โทรศัพท์",x.phone||"");if(phone===null)return;
- const line_user_id=prompt("LINE User ID",x.line_user_id||"");if(line_user_id===null)return;
- const id_card=prompt("เลขบัตรประชาชน",x.id_card||"");if(id_card===null)return;
- const move_in=prompt("วันที่เข้าพัก (YYYY-MM-DD)",x.move_in||"");if(move_in===null)return;
- const deposit=prompt("เงินประกัน",x.deposit||0);if(deposit===null)return;
- const note=prompt("หมายเหตุ",x.note||"");if(note===null)return;
- const roomText=prompt("เลขห้อง (เช่น 101) หรือเว้นว่างเพื่อไม่ระบุ",x.room_no||"");if(roomText===null)return;
- const room=r.find(a=>a.room_no===roomText.trim() && (a.status==="ว่าง" || a.id===x.room_id));
- if(roomText.trim() && !room){alert("ไม่พบห้องว่างหรือห้องเดิม");return}
- await send("/api/tenants/"+id,"PUT",{name,phone,line_user_id,id_card,move_in,deposit:Number(deposit||0),note,room_id:room?room.id:null});
- tenants();
+ const roomOptions=r.filter(a=>a.status==="ว่าง"||a.id===x.room_id).map(a=>"<option value='"+a.id+"' "+(a.id===x.room_id?"selected":"")+">ห้อง "+a.room_no+"</option>").join("");
+ const old=document.getElementById("tenantModal");if(old)old.remove();
+ const modal=document.createElement("div");modal.id="tenantModal";modal.className="modal-backdrop";
+ modal.innerHTML="<div class='modal'><div class='modal-head'><h3>แก้ไขข้อมูลผู้เช่า</h3><button class='modal-close' onclick='closeTenantModal()'>×</button></div><form onsubmit='saveTenant(event,"+id+")'><label>ชื่อผู้เช่า<input name='name' value='"+esc(x.name)+"' required></label><label>โทรศัพท์<input name='phone' value='"+esc(x.phone||"")+"'></label><label>LINE User ID<input name='line_user_id' value='"+esc(x.line_user_id||"")+"'></label><label>เลขบัตรประชาชน<input name='id_card' value='"+esc(x.id_card||"")+"'></label><label>วันที่เข้าพัก<input type='date' name='move_in' value='"+(x.move_in||"")+"'></label><label>เงินประกัน<input type='number' name='deposit' value='"+(x.deposit||0)+"'></label><label>ห้อง<select name='room_id'><option value=''>ไม่ระบุ</option>"+roomOptions+"</select></label><label>หมายเหตุ<textarea name='note'>"+esc(x.note||"")+"</textarea></label><div class='modal-actions'><button type='button' class='secondary' onclick='closeTenantModal()'>ยกเลิก</button><button type='submit'>บันทึกการแก้ไข</button></div></form></div>";
+ document.body.appendChild(modal);
+}
+function esc(v){return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
+function closeTenantModal(){const m=document.getElementById("tenantModal");if(m)m.remove()}
+async function saveTenant(e,id){
+ e.preventDefault();const f=new FormData(e.target);const d=Object.fromEntries(f.entries());d.room_id=d.room_id?Number(d.room_id):null;d.deposit=Number(d.deposit||0);
+ const r=await send("/api/tenants/"+id,"PUT",d);if(!r.ok){alert(r.error||"บันทึกไม่สำเร็จ");return}closeTenantModal();await tenants();
 }
 async function delTenant(id){if(!confirm("ลบผู้เช่ารายนี้?"))return;await send("/api/tenants/"+id,"DELETE",{});tenants()}
 async function bills(){
