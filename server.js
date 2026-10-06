@@ -141,6 +141,18 @@ async function api(req, res, url) {
       return json(res, 200, { token: newSession(), username: u });
     return json(res, 401, { error: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง" });
   }
+  // Public room status endpoint for the R&M HOUSE website.
+  // Exposes only room number + availability status; no tenant data.
+  if (method === "GET" && p === "/api/public/rooms") {
+    const rooms = await all("SELECT room_no,status FROM rooms ORDER BY room_no");
+    res.writeHead(200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "no-store"
+    });
+    return res.end(JSON.stringify(rooms));
+  }
+
   if (p.startsWith("/api/") && !authed(req))
     return json(res, 401, { error: "กรุณาเข้าสู่ระบบ" });
 
