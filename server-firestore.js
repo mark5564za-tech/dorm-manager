@@ -3,13 +3,15 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { applicationDefault, initializeApp } from "firebase-admin/app";
+import { applicationDefault, cert, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import XLSX from "xlsx";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
-initializeApp({ credential: applicationDefault(), projectId: process.env.FIREBASE_PROJECT_ID || "dorm-manager-43352" });
+const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+const firebaseCredential = serviceAccountJson ? cert(JSON.parse(serviceAccountJson)) : applicationDefault();
+initializeApp({ credential: firebaseCredential, projectId: process.env.FIREBASE_PROJECT_ID || "dorm-manager-43352" });
 const db = getFirestore();
 const sessions = new Set();
 const mime = { ".html":"text/html; charset=utf-8", ".css":"text/css; charset=utf-8", ".js":"text/javascript; charset=utf-8" };
