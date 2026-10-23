@@ -11,10 +11,11 @@
 </div>
 <div id="system" style="display:none">
 <header><h1>🏠 Dorm Manager</h1><span>ระบบจัดการหอพักส่วนตัว</span><button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="สลับโหมด">🌙</button></header>
-<nav>
-<button onclick="show('dashboard')">ภาพรวม</button><button onclick="show('rooms')">ห้องพัก</button>
-<button onclick="show('tenants')">ผู้เช่า</button><button onclick="show('bills')">บิล/ชำระเงิน</button><button onclick="show('meters')">มิเตอร์น้ำ-ไฟ</button><button onclick="show('settings')">ตั้งค่าระบบ</button><button onclick="logout()">ออกจากระบบ</button>
+<nav class="sidebar">
+<div class="sidebar-brand"><span class="brand-mark">⌂</span><div><strong>R&m HOUSE</strong><small>Dorm Manager</small></div></div>
+<button class="nav-item active" onclick="show('dashboard')"><span>⌂</span>ภาพรวม</button><button class="nav-item" onclick="show('rooms')"><span>▦</span>ห้องพัก</button>
+<button class="nav-item" onclick="show('tenants')"><span>♙</span>ผู้เช่า</button><button class="nav-item" onclick="show('meters')"><span>▤</span>มิเตอร์น้ำ-ไฟ</button><button class="nav-item" onclick="show('bills')"><span>฿</span>บิล/ชำระเงิน</button><button class="nav-item" onclick="show('settings')"><span>⚙</span>ตั้งค่าระบบ</button><div class="nav-divider"></div><button class="nav-item logout-item" onclick="logout()"><span>⇥</span>ออกจากระบบ</button>
 </nav>
 <main id="app"></main>
-</div><script src="app.js?v=20260921-meter"></script>
+</div><script src="app.js?v=20261022-integrity"></script>
 </body></html>
