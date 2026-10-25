@@ -7,7 +7,7 @@
 <body>
 <div id="login" class="login-box">
 <h2>🔐 เข้าสู่ระบบผู้ดูแล</h2><p>ระบบนี้มีผู้ดูแลเพียงบัญชีเดียว</p>
-<form onsubmit="login(event)"><label>ชื่อผู้ใช้<input id="username" value="admin" required></label><label>รหัสผ่าน<input id="password" type="password" required></label><button>เข้าสู่ระบบ</button></form><p id="loginError" class="bad"></p>
+<form onsubmit="login(event)"><label>อีเมลผู้ดูแล<input id="email" type="email" autocomplete="username" placeholder="admin@manager.com" required></label><label>รหัสผ่าน Firebase<input id="password" type="password" autocomplete="current-password" required></label><button type="submit">เข้าสู่ระบบ</button></form><p id="loginError" class="bad"></p>
 </div>
 <div id="system" style="display:none">
 <header><h1>🏠 Dorm Manager</h1><span>ระบบจัดการหอพักส่วนตัว</span><button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="สลับโหมด">🌙</button></header>
@@ -17,5 +17,5 @@
 <button class="nav-item" onclick="show('tenants')"><span>♙</span>ผู้เช่า</button><button class="nav-item" onclick="show('meters')"><span>▤</span>มิเตอร์น้ำ-ไฟ</button><button class="nav-item" onclick="show('bills')"><span>฿</span>บิล/ชำระเงิน</button><button class="nav-item" onclick="show('settings')"><span>⚙</span>ตั้งค่าระบบ</button><div class="nav-divider"></div><button class="nav-item logout-item" onclick="logout()"><span>⇥</span>ออกจากระบบ</button>
 </nav>
 <main id="app"></main>
-</div><script src="app.js?v=20261022-integrity"></script>
+</div><script type="module" src="firebase-auth.js"></script><script src="api-config.js?v=20261026"></script><script src="app.js?v=20261026-render"></script>
 </body></html>

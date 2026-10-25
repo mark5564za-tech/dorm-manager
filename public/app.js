@@ -1,25 +1,31 @@
-let token=localStorage.getItem("dorm_token")||"";
+let token="";
+const API_BASE_URL = window.DORM_API_BASE_URL || "";
+const apiUrl = u => API_BASE_URL.replace(/\/$/, "") + u;
 const $=s=>document.querySelector(s);
 const money=n=>Number(n||0).toLocaleString("th-TH",{minimumFractionDigits:2});
 async function login(e){
  e.preventDefault();
- const r=await fetch("/api/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:$("#username").value,password:$("#password").value})});
- const d=await r.json();
- if(!r.ok){$("#loginError").textContent=d.error||"เข้าสู่ระบบไม่สำเร็จ";return}
- token=d.token;localStorage.setItem("dorm_token",token);
- $("#login").style.display="none";$("#system").style.display="block";show("dashboard");
+ const error=$("#loginError");error.textContent="";
+ try {
+  if(typeof window.firebaseAuthLogin!=="function") throw new Error("Firebase Authentication ยังโหลดไม่เสร็จ กรุณารีเฟรชหน้าเว็บ");
+  await window.firebaseAuthLogin($("#email").value.trim(),$("#password").value);
+  token=await window.firebaseAuthToken();
+  $("#password").value="";$("#login").style.display="none";$("#system").style.display="block";await show("dashboard");
+ } catch(err) { error.textContent=err?.code==="auth/invalid-credential"||err?.code==="auth/wrong-password"||err?.code==="auth/user-not-found"?"อีเมลหรือรหัสผ่านไม่ถูกต้อง":(err?.message||"เข้าสู่ระบบไม่สำเร็จ"); }
 }
-function logout(){localStorage.removeItem("dorm_token");location.reload()}
+function logout(){if(window.firebaseAuthLogout)window.firebaseAuthLogout();token="";$("#system").style.display="none";$("#login").style.display="block";$("#password").value="";$("#loginError").textContent="";}
 function applyTheme(){const dark=localStorage.getItem("dorm_theme")==="dark";document.body.classList.toggle("dark",dark);const b=$("#themeToggle");if(b)b.textContent=dark?"☀️":"🌙"}
 function toggleTheme(){const dark=!document.body.classList.contains("dark");localStorage.setItem("dorm_theme",dark?"dark":"light");applyTheme()}
 applyTheme()
 async function get(u){
- const r=await fetch(u,{headers:{Authorization:"Bearer "+token}});
+ token=await window.firebaseAuthToken();
+ const r=await fetch(apiUrl(u),{headers:{Authorization:"Bearer "+token}});
  if(r.status===401){logout();return {}}
  return r.json();
 }
 async function send(u,method,data){
- const r=await fetch(u,{method,headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify(data)});
+ token=await window.firebaseAuthToken();
+ const r=await fetch(apiUrl(u),{method,headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify(data)});
  if(r.status===401){logout();return {}}
  return r.json();
 }
@@ -99,16 +105,16 @@ async function bills(){
 async function fillBillUtilities(){const tenant=$("#billTenant"),monthField=$("#billMonth");if(!tenant||!monthField)return;const option=tenant.options[tenant.selectedIndex],roomId=Number(option?.dataset.roomId||0),all=await get("/api/meter-readings");const rec=all.find(x=>Number(x.room_id)===roomId&&String(x.reading_month)===monthField.value);const hint=$("#billMeterHint");if(rec){const ec=Math.max(0,Number(rec.electricity_current)-Number(rec.electricity_prev))*Number(rec.electricity_rate||0),wc=Math.max(0,Number(rec.water_current)-Number(rec.water_prev))*Number(rec.water_rate||0);$("#billElectricity").value=ec.toFixed(2);$("#billWater").value=wc.toFixed(2);hint.textContent="ดึงข้อมูลมิเตอร์เดือน "+rec.reading_month+" แล้ว · ค่าไฟ "+money(ec)+" บาท · ค่าน้ำ "+money(wc)+" บาท";hint.style.color="#187a48";}else{hint.textContent="ไม่พบข้อมูลมิเตอร์ของห้องนี้ในเดือนที่เลือก กรุณาบันทึกมิเตอร์ก่อน หรือกรอกค่าน้ำ-ไฟเอง";hint.style.color="#b7791f";}updateBillTotal()}
 function updateBillTotal(){const sum=["#billRent","#billElectricity","#billWater","#billOther"].reduce((s,id)=>s+Number($(id)?.value||0),0);const out=$("#billTotalPreview");if(out)out.textContent=money(sum)+" ฿"}
 document.addEventListener("input",e=>{if(e.target&&["billRent","billElectricity","billWater","billOther"].includes(e.target.id))updateBillTotal()});
-async function exportPayments(){const m=$("#exportMonth").value||new Date().toISOString().slice(0,7);const r=await fetch("/api/export/payments?month="+encodeURIComponent(m),{headers:{Authorization:"Bearer "+token}});if(!r.ok){alert("ดาวน์โหลด Excel ไม่สำเร็จ");return}const blob=await r.blob();const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="payments-"+m+".xlsx";a.click();URL.revokeObjectURL(a.href)}
+async function exportPayments(){const m=$("#exportMonth").value||new Date().toISOString().slice(0,7);token=await window.firebaseAuthToken();const r=await fetch("/api/export/payments?month="+encodeURIComponent(m),{headers:{Authorization:"Bearer "+token}});if(!r.ok){alert("ดาวน์โหลด Excel ไม่สำเร็จ");return}const blob=await r.blob();const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="payments-"+m+".xlsx";a.click();URL.revokeObjectURL(a.href)}
 async function addBill(e){e.preventDefault();const f=new FormData(e.target);const d=Object.fromEntries(f.entries());d.tenant_id=Number(d.tenant_id);["rent","electricity","water","other"].forEach(k=>d[k]=Number(d[k]||0));const r=await send("/api/bills","POST",d);if(!r.id){alert(r.error||"สร้างบิลไม่สำเร็จ");return}await bills();const link=r.link||"";const ok=confirm("สร้างบิลแล้ว ยอด "+money(r.total)+" บาท\\n\\nลิงก์บิล:\\n"+link+"\\n\\nกด OK เพื่อเปิดหน้าบิล");if(ok&&link)window.open(link,"_blank","noopener");}
 async function viewBill(id){const b=await get("/api/bills");const x=b.find(v=>Number(v.id)===Number(id));if(!x){alert("ไม่พบบิลนี้");return}if(!x.public_token){alert("บิลนี้ไม่มีรหัสลิงก์ กรุณาสร้างบิลใหม่หรือติดต่อผู้ดูแลระบบ");return}const base=location.origin;window.open(base+"/bill/"+x.id+"/"+x.public_token,"_blank","noopener");}
 async function deleteBill(id){const all=await get("/api/bills");const bill=all.find(x=>String(x.id)===String(id));if(!bill){alert("ไม่พบบิลนี้");return}let payload={};if(bill.status==="ชำระแล้ว"){const typed=prompt("บิลนี้ชำระแล้ว หากเป็นบิลทดลองและต้องการลบ ให้พิมพ์คำว่า ลบบิลทดลอง");if(typed===null)return;if(typed.trim()!=="ลบบิลทดลอง"){alert("คำยืนยันไม่ตรง ยกเลิกการลบบิลแล้ว");return}if(!confirm("ยืนยันลบบิลที่ชำระแล้ว รวมถึงประวัติการชำระเงินของบิลนี้ใช่ไหม? การลบนี้ย้อนกลับไม่ได้"))return;payload.confirm_paid_delete="ลบบิลทดลอง"}else{if(!confirm("ต้องการลบบิลนี้ใช่ไหม? บิลที่ลบจะหายเฉพาะรายการนี้ค่ะ"))return}const r=await send("/api/bills/"+id,"DELETE",payload);if(!r.ok){alert(r.error||"ลบบิลไม่สำเร็จ");return}alert("ลบบิลเรียบร้อยแล้ว");await bills()}
 async function payBill(id,total){const a=prompt("จำนวนเงิน (ต้องเท่ากับยอดบิลเต็มจำนวน)",total);if(a===null)return;const r=await send("/api/bills/"+id+"/pay","POST",{amount:Number(a),method:"เงินสด"});if(!r.ok){alert(r.error||"บันทึกการชำระเงินไม่สำเร็จ");return}alert("บันทึกการชำระเงินแล้ว");await bills()}
 async function sendBill(id){const r=await send("/api/line/send-bill","POST",{bill_id:id});alert(r.ok?"ส่งบิลทาง LINE แล้ว":"ส่งไม่ได้: "+(r.error||"ตรวจสอบการตั้งค่า LINE"))}
-if(token){$("#login").style.display="none";$("#system").style.display="block";show("dashboard")}
+window.addEventListener("firebase-auth-ready",async()=>{if(window.firebaseAuthCurrentUser){try{token=await window.firebaseAuthToken();$("#login").style.display="none";$("#system").style.display="block";await show("dashboard")}catch{logout()}}});
 async function settings(){
  const a=await get("/api/settings");const s=Object.fromEntries(a.map(x=>[x.key,x.value]));
- $("#app").innerHTML="<h2>ตั้งค่าระบบ</h2><div class='panel'><h3>LINE Messaging API</h3><p>LINE ต้องใช้ Official Account + Messaging API</p><label>Channel Access Token<input id='lineToken' type='password' value='"+(s.line_channel_token||"")+"'></label><label>Public URL<input id='publicUrl' placeholder='https://example.com' value='"+(s.line_public_url||"")+"'></label><label>Channel Secret<input id='lineSecret' type='password' value='"+(s.line_channel_secret||"")+"'></label><button onclick='saveLine()'>บันทึก LINE</button></div><div class='panel'><h3>เปลี่ยนรหัสผ่านแอดมิน</h3><label>รหัสผ่านเดิม<input id='oldPw' type='password'></label><label>รหัสผ่านใหม่<input id='newPw' type='password'></label><button onclick='changePw()'>เปลี่ยนรหัสผ่าน</button></div><div class='panel'><p>บัญชีผู้ดูแลมีเพียง 1 บัญชี ชื่อผู้ใช้: <b>admin</b></p></div>"
+ $("#app").innerHTML="<h2>ตั้งค่าระบบ</h2><div class='panel'><h3>LINE Messaging API</h3><p>LINE ต้องใช้ Official Account + Messaging API</p><label>Channel Access Token<input id='lineToken' type='password' value='"+(s.line_channel_token||"")+"'></label><label>Public URL<input id='publicUrl' placeholder='https://example.com' value='"+(s.line_public_url||"")+"'></label><label>Channel Secret<input id='lineSecret' type='password' value='"+(s.line_channel_secret||"")+"'></label><button onclick='saveLine()'>บันทึก LINE</button></div><div class='panel'><h3>บัญชีผู้ดูแล</h3><p>เข้าสู่ระบบด้วยบัญชี Firebase Authentication: <b>admin@manager.com</b></p><p class='muted'>หากต้องการเปลี่ยนรหัสผ่าน ให้ใช้ขั้นตอนรีเซ็ตรหัสผ่านของ Firebase Authentication</p></div>"
 }
 async function saveLine(){
  const r=await send("/api/settings","POST",{line_channel_token:$("#lineToken").value,line_public_url:$("#publicUrl").value,line_channel_secret:$("#lineSecret").value});

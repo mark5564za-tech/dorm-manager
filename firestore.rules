@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Only the configured Firebase Authentication administrator UID is allowed.
+    // Keep these rules local until frontend auth and Firestore access are tested.
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.uid == 'SKhyOMyeuzXZz8QMZtENFnsm0WJ2';
+    }
+
+    match /rooms/{document=**} { allow read, write: if isAdmin(); }
+    match /tenants/{document=**} { allow read, write: if isAdmin(); }
+    match /bills/{document=**} { allow read, write: if isAdmin(); }
+    match /payments/{document=**} { allow read, write: if isAdmin(); }
+    match /meter_readings/{document=**} { allow read, write: if isAdmin(); }
+    match /settings/{document=**} { allow read, write: if isAdmin(); }
+    match /_counters/{document=**} { allow read, write: if isAdmin(); }
+
+    // Deny access to every collection not explicitly listed above.
+    match /{document=**} { allow read, write: if false; }
+  }
+}
