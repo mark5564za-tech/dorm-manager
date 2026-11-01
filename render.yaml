@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: dorm-manager-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FIREBASE_PROJECT_ID
+        value: dorm-manager-43352
+      - key: CORS_ORIGINS
+        value: https://dorm-manager-43352.web.app,https://dorm-manager-43352.firebaseapp.com
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
