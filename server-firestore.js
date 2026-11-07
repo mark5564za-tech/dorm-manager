@@ -68,7 +68,10 @@ async function lineWebhook(req,res){
  const a=Buffer.from(signature),b=Buffer.from(expected);if(a.length!==b.length||!crypto.timingSafeEqual(a,b))return json(res,401,{error:"Invalid LINE signature"});
  let payload;try{payload=JSON.parse(raw)}catch{return json(res,400,{error:"Invalid JSON"})}
  for(const event of payload.events||[]){const userId=event.source?.userId;if(!userId)continue;
-  if(event.type==="follow"){const profile=await fetch("https://api.line.me/v2/bot/profile/"+encodeURIComponent(userId),{headers:{Authorization:"Bearer "+await setting("line_channel_token")}}).then(r=>r.ok?r.json():null).catch(()=>null);await save("line_pending_users",userId,{line_user_id:userId,display_name:profile?.displayName||"",picture_url:profile?.pictureUrl||"",first_seen:new Date().toISOString(),last_event:"follow"});}
+  if(event.type==="follow"||event.type==="message"){
+   const linked=(await docs("tenants")).some(t=>t.line_user_id===userId);
+   if(!linked){const profile=await fetch("https://api.line.me/v2/bot/profile/"+encodeURIComponent(userId),{headers:{Authorization:"Bearer "+await setting("line_channel_token")}}).then(r=>r.ok?r.json():null).catch(()=>null);const existing=await get("line_pending_users",userId);await save("line_pending_users",userId,{...(existing||{}),line_user_id:userId,display_name:profile?.displayName||existing?.display_name||"",picture_url:profile?.pictureUrl||existing?.picture_url||"",first_seen:existing?.first_seen||new Date().toISOString(),last_event:event.type,last_seen:new Date().toISOString()});}
+  }
   if(event.type==="unfollow"){await remove("line_pending_users",userId);const tenants=await docs("tenants");const tenant=tenants.find(t=>t.line_user_id===userId);if(tenant)await save("tenants",tenant.id,{...tenant,line_user_id:""});}
  }
  return json(res,200,{ok:true});
