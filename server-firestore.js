@@ -148,28 +148,33 @@ const server=http.createServer(async(req,res)=>{
  const button=document.querySelector(".pdf-btn");
  if(typeof html2pdf!=="function"){alert("ระบบสร้าง PDF โหลดไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่");return}
  const originalLabel=button.textContent;button.disabled=true;button.textContent="กำลังสร้าง PDF...";
- let exportRoot=null;
  try{
   const source=document.querySelector(".bill-content");
-  exportRoot=source.cloneNode(true);
-  exportRoot.removeAttribute("id");
-  exportRoot.style.cssText="display:block;width:700px;max-width:none;box-sizing:border-box;margin:0;padding:20px;background:#fff;color:#222;position:fixed;left:0;top:0;z-index:2147483647;overflow:visible;font-family:Tahoma,Arial,sans-serif";
-  const payment=exportRoot.querySelector(".payment");
-  if(payment&&!exportRoot.classList.contains("paid")){
-   const originalQr=payment.querySelector(".qr");const originalAccount=payment.querySelector(".account");
-   const layout=document.createElement("table");layout.setAttribute("role","presentation");layout.style.cssText="display:table!important;width:100%!important;table-layout:fixed!important;border-collapse:collapse!important;margin:22px 0 0!important;border-top:2px solid #e5e5e5!important";
-   const row=layout.insertRow();const qrCell=row.insertCell();const accountCell=row.insertCell();
-   qrCell.style.cssText="display:table-cell!important;width:210px!important;padding:18px 12px 0 0!important;vertical-align:middle!important";
-   accountCell.style.cssText="display:table-cell!important;padding:18px 0 0!important;vertical-align:middle!important";
-   if(originalQr){const qr=originalQr.cloneNode(true);qr.style.cssText="display:block!important;width:190px!important;height:190px!important;max-width:none!important;object-fit:contain!important;visibility:visible!important;opacity:1!important";qrCell.appendChild(qr)}
-   if(originalAccount){const account=originalAccount.cloneNode(true);account.style.cssText="display:block!important;width:100%!important;min-height:140px!important;box-sizing:border-box!important;border:2px solid #b9c8d8!important;border-radius:10px!important;padding:18px!important;visibility:visible!important;opacity:1!important";account.querySelectorAll("h2,div").forEach(el=>{el.style.setProperty("display","block","important");el.style.setProperty("visibility","visible","important");el.style.setProperty("opacity","1","important")});accountCell.appendChild(account)}
-   payment.replaceWith(layout);
-  }
-  document.body.appendChild(exportRoot);
-  await Promise.all([document.fonts&&document.fonts.ready,...Array.from(exportRoot.querySelectorAll("img")).map(img=>img.decode?img.decode().catch(()=>{}):Promise.resolve())]);
-  await html2pdf().set({margin:10,filename:${JSON.stringify(pdfFilename)},image:{type:"jpeg",quality:.98},html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff",windowWidth:740,scrollX:0,scrollY:0},jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}}).from(exportRoot).save();
+  await html2pdf().set({
+   margin:10,
+   filename:${JSON.stringify(pdfFilename)},
+   image:{type:"jpeg",quality:.98},
+   html2canvas:{scale:2,useCORS:true,backgroundColor:"#ffffff",onclone:(doc)=>{
+    const root=doc.querySelector(".bill-content");
+    const payment=root&&root.querySelector(".payment");
+    if(!payment||root.classList.contains("paid"))return;
+    const qr=payment.querySelector(".qr");
+    const account=payment.querySelector(".account");
+    const table=doc.createElement("table");
+    table.setAttribute("role","presentation");
+    table.style.cssText="display:table!important;width:100%!important;table-layout:fixed!important;border-collapse:collapse!important;margin:22px 0 0!important;border-top:2px solid #e5e5e5!important;visibility:visible!important";
+    const row=table.insertRow();
+    const qrCell=row.insertCell();const accountCell=row.insertCell();
+    qrCell.style.cssText="display:table-cell!important;width:210px!important;padding:18px 12px 0 0!important;vertical-align:middle!important";
+    accountCell.style.cssText="display:table-cell!important;padding:18px 0 0!important;vertical-align:middle!important";
+    if(qr){qr.style.cssText="display:block!important;width:190px!important;height:190px!important;max-width:none!important;object-fit:contain!important;visibility:visible!important;opacity:1!important";qrCell.appendChild(qr)}
+    if(account){account.style.cssText="display:block!important;width:100%!important;min-height:140px!important;box-sizing:border-box!important;border:2px solid #b9c8d8!important;border-radius:10px!important;padding:18px!important;visibility:visible!important;opacity:1!important";account.querySelectorAll("*").forEach(el=>{el.style.setProperty("visibility","visible","important");el.style.setProperty("opacity","1","important")});accountCell.appendChild(account)}
+    payment.replaceWith(table);
+   }},
+   jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}
+  }).from(source).save();
  }catch(error){console.error("Bill PDF export failed:",error);alert("สร้างไฟล์ PDF ไม่สำเร็จ กรุณาลองอีกครั้ง")}
- finally{if(exportRoot&&exportRoot.parentNode)exportRoot.parentNode.removeChild(exportRoot);button.disabled=false;button.textContent=originalLabel}
+ finally{button.disabled=false;button.textContent=originalLabel}
 }if(new URLSearchParams(location.search).get("download")==="1")addEventListener("load",()=>setTimeout(()=>saveBillPdf(),700));</script></html>`;
    res.writeHead(200,{"Content-Type":"text/html; charset=utf-8"});return res.end(html);
   }
