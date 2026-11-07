@@ -61,6 +61,19 @@ async function enrich() {
   const metersFull=meters.map(m=>({...m,room_no:roomById.get(Number(m.room_id))?.room_no||null}));
   return {rooms,tenants,tenantsWithRoom,bills,billsFull,payments,paymentsFull,meters,metersFull,roomById,tenantById,billById};
 }
+async function lineWebhook(req,res){
+ const secret=await setting("line_channel_secret");if(!secret)return json(res,503,{error:"LINE webhook is not configured"});
+ let raw="";for await(const chunk of req)raw+=chunk;const signature=String(req.headers["x-line-signature"]||"");
+ const expected=crypto.createHmac("sha256",secret).update(raw).digest("base64");
+ const a=Buffer.from(signature),b=Buffer.from(expected);if(a.length!==b.length||!crypto.timingSafeEqual(a,b))return json(res,401,{error:"Invalid LINE signature"});
+ let payload;try{payload=JSON.parse(raw)}catch{return json(res,400,{error:"Invalid JSON"})}
+ for(const event of payload.events||[]){const userId=event.source?.userId;if(!userId)continue;
+  if(event.type==="follow"){const profile=await fetch("https://api.line.me/v2/bot/profile/"+encodeURIComponent(userId),{headers:{Authorization:"Bearer "+await setting("line_channel_token")}}).then(r=>r.ok?r.json():null).catch(()=>null);await save("line_pending_users",userId,{line_user_id:userId,display_name:profile?.displayName||"",picture_url:profile?.pictureUrl||"",first_seen:new Date().toISOString(),last_event:"follow"});}
+  if(event.type==="unfollow"){await remove("line_pending_users",userId);const tenants=await docs("tenants");const tenant=tenants.find(t=>t.line_user_id===userId);if(tenant)await save("tenants",tenant.id,{...tenant,line_user_id:""});}
+ }
+ return json(res,200,{ok:true});
+}
+
 async function api(req,res,url) {
   const method=req.method,p=url.pathname;
   if(method==="POST"&&p==="/api/login") return json(res,410,{error:"โปรดเข้าสู่ระบบผ่าน Firebase Authentication"});
@@ -85,8 +98,9 @@ async function api(req,res,url) {
   }
   if(method==="PUT"&&p.startsWith("/api/meter-readings/")){const id=p.split("/").pop(),x=await body(req),old=await get("meter_readings",id);if(!old)return json(res,404,{error:"ไม่พบบันทึกมิเตอร์"});const roomId=Number(x.room_id),m=String(x.reading_month||"");if(!roomId||!d.roomById.has(roomId)||!validMonth(m))return json(res,400,{error:"ห้องหรือเดือนที่เลือกไม่ถูกต้อง"});const nums=[x.electricity_prev,x.electricity_current,x.water_prev,x.water_current,x.electricity_rate,x.water_rate].map(v=>Number(v??0));if(!validMoneyValues(nums)||nums[1]<nums[0]||nums[3]<nums[2])return json(res,400,{error:"ตรวจสอบเลขมิเตอร์และอัตราค่าบริการอีกครั้ง"});if(d.meters.some(v=>String(v.id)!==String(id)&&Number(v.room_id)===roomId&&String(v.reading_month)===m))return json(res,409,{error:"ห้องนี้มีบันทึกของเดือนดังกล่าวอยู่แล้ว"});await save("meter_readings",id,{...old,room_id:roomId,reading_month:m,electricity_prev:nums[0],electricity_current:nums[1],water_prev:nums[2],water_current:nums[3],electricity_rate:nums[4],water_rate:nums[5],note:x.note||""});return json(res,200,{ok:true});}
   if(method==="DELETE"&&p.startsWith("/api/meter-readings/")){await remove("meter_readings",p.split("/").pop());return json(res,200,{ok:true});}
-  if(method==="GET"&&p==="/api/settings")return json(res,200,(await docs("settings")).filter(x=>["line_channel_token","line_public_url","line_channel_secret"].includes(x.key)));
-  if(method==="POST"&&p==="/api/settings"){const x=await body(req);const allowed=["line_channel_token","line_public_url","line_channel_secret"];for(const [k,v] of Object.entries(x))if(allowed.includes(k))await setSetting(k,v);return json(res,200,{ok:true});}
+  if(method==="GET"&&p==="/api/settings"){const all=await docs("settings");return json(res,200,[{key:"line_public_url",value:all.find(x=>x.key==="line_public_url")?.value||""},{key:"line_channel_token_configured",value:Boolean(all.find(x=>x.key==="line_channel_token")?.value)},{key:"line_channel_secret_configured",value:Boolean(all.find(x=>x.key==="line_channel_secret")?.value)},{key:"pending_line_users",value:await docs("line_pending_users")}]);}
+  if(method==="POST"&&p==="/api/line/link-user"){const x=await body(req),userId=String(x.line_user_id||""),tenantId=Number(x.tenant_id);const pending=await get("line_pending_users",userId);const tenant=await get("tenants",tenantId);if(!pending||!tenant)return json(res,400,{error:"LINE user or tenant not found"});const existing=(await docs("tenants")).find(t=>t.line_user_id===userId&&Number(t.id)!==tenantId);if(existing)return json(res,409,{error:"This LINE account is already linked to another tenant"});await save("tenants",tenantId,{...tenant,line_user_id:userId});await remove("line_pending_users",userId);return json(res,200,{ok:true});}
+  if(method==="POST"&&p==="/api/settings"){const x=await body(req);const allowed=["line_channel_token","line_public_url","line_channel_secret"];for(const [k,v] of Object.entries(x))if(allowed.includes(k)&&String(v||"").trim())await setSetting(k,v);return json(res,200,{ok:true});}
   if(method==="POST"&&p==="/api/change-password"){const x=await body(req);if(!x.new_password||String(x.new_password).length<8)return json(res,400,{error:"รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร"});if(hash(x.old_password||"")!==await setting("admin_password"))return json(res,400,{error:"รหัสผ่านเดิมไม่ถูกต้อง"});await setSetting("admin_password",hash(x.new_password));sessions.clear();return json(res,200,{ok:true});}
   if(method==="POST"&&p==="/api/tenants"){
     const x=await body(req);if(!String(x.name||"").trim())return json(res,400,{error:"กรุณาระบุชื่อผู้เช่า"});
@@ -140,6 +154,7 @@ const server=http.createServer(async(req,res)=>{
  if(req.method==="OPTIONS") { res.writeHead(204); return res.end(); }
  if(req.method==="GET" && url.pathname==="/health") return json(res,200,{ok:true,service:"dorm-manager-backend",commit:process.env.RENDER_GIT_COMMIT||"unknown"});
  try {
+  if(req.method==="POST"&&url.pathname==="/api/line/webhook")return await lineWebhook(req,res);
   if(url.pathname.startsWith("/bill/")){
    const parts=url.pathname.split("/"),id=Number(parts[2]),provided=parts[3]||"",d=await enrich(),b=d.billsFull.find(x=>Number(x.id)===id);const valid=Boolean(b&&b.public_token&&provided&&provided.length===b.public_token.length&&crypto.timingSafeEqual(Buffer.from(provided),Buffer.from(b.public_token)));if(!valid){res.writeHead(404,{"Content-Type":"text/plain; charset=utf-8","Cache-Control":"no-store"});return res.end("ไม่พบบิล");}
    const isPaid=b.status==="ชำระแล้ว";
