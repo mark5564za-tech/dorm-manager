@@ -11,7 +11,8 @@
       "**/*.db",
       "**/*.bak",
       "**/*service-account*.json",
-      "**/*admin-key*.json"
+      "**/*admin-key*.json",
+      "**/bill-pdf-position-preview.html"
     ],
     "headers": [
       {
