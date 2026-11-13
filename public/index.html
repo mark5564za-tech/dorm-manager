@@ -2,7 +2,15 @@
 <html lang="th">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dorm Manager</title><link rel="stylesheet" href="style.css">
+<title>Dorm Manager</title>
+<meta name="theme-color" content="#6f513b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Dorm Manager">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div id="login" class="login-box">
@@ -10,12 +18,44 @@
 <form onsubmit="login(event)"><label>อีเมลผู้ดูแล<input id="email" type="email" autocomplete="username" placeholder="admin@manager.com" required></label><label>รหัสผ่าน Firebase<input id="password" type="password" autocomplete="current-password" required></label><button type="submit">เข้าสู่ระบบ</button></form><p id="loginError" class="bad"></p>
 </div>
 <div id="system" style="display:none">
-<header><h1>🏠 Dorm Manager</h1><span>ระบบจัดการหอพักส่วนตัว</span><button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="สลับโหมด">🌙</button></header>
+<header><h1>🏠 Dorm Manager</h1><span>ระบบจัดการหอพักส่วนตัว</span><button id="installAppButton" type="button" hidden>ติดตั้งแอป</button><button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="สลับโหมด">🌙</button></header>
 <nav class="sidebar">
 <div class="sidebar-brand"><span class="brand-mark">⌂</span><div><strong>R&m HOUSE</strong><small>Dorm Manager</small></div></div>
 <button class="nav-item active" onclick="show('dashboard')"><span>⌂</span>ภาพรวม</button><button class="nav-item" onclick="show('rooms')"><span>▦</span>ห้องพัก</button>
 <button class="nav-item" onclick="show('tenants')"><span>♙</span>ผู้เช่า</button><button class="nav-item" onclick="show('meters')"><span>▤</span>มิเตอร์น้ำ-ไฟ</button><button class="nav-item" onclick="show('bills')"><span>฿</span>บิล/ชำระเงิน</button><button class="nav-item" onclick="show('settings')"><span>⚙</span>ตั้งค่าระบบ</button><div class="nav-divider"></div><button class="nav-item logout-item" onclick="logout()"><span>⇥</span>ออกจากระบบ</button>
 </nav>
 <main id="app"></main>
-</div><script type="module" src="firebase-auth.js"></script><script src="api-config.js?v=20261103"></script><script src="app.js?v=20261107-line-thai-fix-2"></script>
+</div>
+<script type="module" src="firebase-auth.js"></script>
+<script src="api-config.js?v=20261103"></script>
+<script src="app.js?v=20261107-line-thai-fix-2"></script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/service-worker.js").catch(error => {
+      console.error("Dorm Manager service worker registration failed:", error);
+    });
+  });
+}
+let dormInstallPrompt = null;
+const dormInstallButton = document.getElementById("installAppButton");
+window.addEventListener("beforeinstallprompt", event => {
+  event.preventDefault();
+  dormInstallPrompt = event;
+  if (dormInstallButton) dormInstallButton.hidden = false;
+});
+if (dormInstallButton) {
+  dormInstallButton.addEventListener("click", async () => {
+    if (!dormInstallPrompt) return;
+    dormInstallPrompt.prompt();
+    await dormInstallPrompt.userChoice;
+    dormInstallPrompt = null;
+    dormInstallButton.hidden = true;
+  });
+}
+window.addEventListener("appinstalled", () => {
+  dormInstallPrompt = null;
+  if (dormInstallButton) dormInstallButton.hidden = true;
+});
+</script>
 </body></html>
