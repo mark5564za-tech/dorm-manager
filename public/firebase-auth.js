@@ -8,13 +8,13 @@ const firebaseConfig = {
   appId: "1:1090246094698:web:b92d6cb78bf96fdae77f13",
   messagingSenderId: "1090246094698"
 };
-const ADMIN_UID = "SKhyOMyeuzXZz8QMZtENFnsm0WJ2";
+const ADMIN_UIDS = new Set(["SKhyOMyeuzXZz8QMZtENFnsm0WJ2", "x8Ncthxrc1aXgBSXU6iHRzPafLx2"]);
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
 window.firebaseAuthLogin = async (email, password) => {
   const credential = await signInWithEmailAndPassword(auth, email, password);
-  if (credential.user.uid !== ADMIN_UID) {
+  if (!ADMIN_UIDS.has(credential.user.uid)) {
     await signOut(auth);
     throw new Error("บัญชีนี้ไม่มีสิทธิ์ผู้ดูแลระบบ");
   }
@@ -23,7 +23,7 @@ window.firebaseAuthLogin = async (email, password) => {
 window.firebaseAuthToken = async () => {
   const user = auth.currentUser;
   if (!user) throw new Error("กรุณาเข้าสู่ระบบใหม่");
-  if (user.uid !== ADMIN_UID) {
+  if (!ADMIN_UIDS.has(user.uid)) {
     await signOut(auth);
     throw new Error("บัญชีนี้ไม่มีสิทธิ์ผู้ดูแลระบบ");
   }
@@ -31,7 +31,7 @@ window.firebaseAuthToken = async () => {
 };
 window.firebaseAuthLogout = () => signOut(auth);
 onAuthStateChanged(auth, user => {
-  window.firebaseAuthCurrentUser = user && user.uid === ADMIN_UID ? user : null;
-  if (user && user.uid !== ADMIN_UID) signOut(auth);
+  window.firebaseAuthCurrentUser = user && ADMIN_UIDS.has(user.uid) ? user : null;
+  if (user && !ADMIN_UIDS.has(user.uid)) signOut(auth);
   window.dispatchEvent(new Event("firebase-auth-ready"));
 });

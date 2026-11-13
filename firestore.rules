@@ -5,7 +5,7 @@ service cloud.firestore {
     // Keep these rules local until frontend auth and Firestore access are tested.
     function isAdmin() {
       return request.auth != null
-        && request.auth.uid == 'SKhyOMyeuzXZz8QMZtENFnsm0WJ2';
+        && request.auth.uid in ['SKhyOMyeuzXZz8QMZtENFnsm0WJ2', 'x8Ncthxrc1aXgBSXU6iHRzPafLx2'];
     }
 
     match /rooms/{document=**} { allow read, write: if isAdmin(); }

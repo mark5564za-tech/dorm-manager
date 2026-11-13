@@ -48,8 +48,8 @@ async function init() {
   }
 }
 const FIREBASE_API_KEY = "AIzaSyBq48Razwk20LWDEbwLTnmBTPb7fXIS3P0";
-const ADMIN_UID = "SKhyOMyeuzXZz8QMZtENFnsm0WJ2";
-async function authed(req){const h=req.headers.authorization||"";if(!h.startsWith("Bearer "))return false;try{const r=await fetch("https://identitytoolkit.googleapis.com/v1/accounts:lookup?key="+FIREBASE_API_KEY,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({idToken:h.slice(7)})});if(!r.ok)return false;const d=await r.json();return d.users?.length===1&&d.users[0].localId===ADMIN_UID;}catch{return false;}}
+const ADMIN_UIDS = new Set(["SKhyOMyeuzXZz8QMZtENFnsm0WJ2", "x8Ncthxrc1aXgBSXU6iHRzPafLx2"]);
+async function authed(req){const h=req.headers.authorization||"";if(!h.startsWith("Bearer "))return false;try{const r=await fetch("https://identitytoolkit.googleapis.com/v1/accounts:lookup?key="+FIREBASE_API_KEY,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({idToken:h.slice(7)})});if(!r.ok)return false;const d=await r.json();return d.users?.length===1&&ADMIN_UIDS.has(d.users[0].localId);}catch{return false;}}
 async function enrich() {
   const [rooms,tenants,bills,payments,meters]=await Promise.all(["rooms","tenants","bills","payments","meter_readings"].map(docs));
   const roomById=new Map(rooms.map(x=>[Number(x.id),x]));
