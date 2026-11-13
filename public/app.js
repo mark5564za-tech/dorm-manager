@@ -47,7 +47,12 @@ async function send(u,method,data){
  if(r.status===401){logout();return {}}
  return r.json();
 }
-async function show(page){if(page==="dashboard")return dashboard();if(page==="rooms")return rooms();if(page==="tenants")return tenants();if(page==="bills")return bills();if(page==="meters")return meters();if(page==="settings")return settings()}
+async function show(page){
+ const activeItem=document.querySelector("#system .sidebar .nav-item[data-page=\""+page+"\"]");
+ if(!activeItem)return;
+ document.querySelectorAll("#system .sidebar .nav-item[data-page]").forEach(item=>{const active=item===activeItem;item.classList.toggle("active",active);if(active)item.setAttribute("aria-current","page");else item.removeAttribute("aria-current")});
+ if(page==="dashboard")return dashboard();if(page==="rooms")return rooms();if(page==="tenants")return tenants();if(page==="bills")return bills();if(page==="meters")return meters();if(page==="settings")return settings();
+}
 async function dashboard(){
  const d=await get("/api/dashboard");
  const rooms=Array.isArray(d.rooms)?d.rooms:[];const bills=Array.isArray(d.bills)?d.bills:[];
