@@ -1,4 +1,22 @@
 let token="";
+const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+let idleTimeoutId = null;
+let lastUserActivity = Date.now();
+function clearIdleLogout(){if(idleTimeoutId!==null){clearTimeout(idleTimeoutId);idleTimeoutId=null}}
+function scheduleIdleLogout(){
+ clearIdleLogout();
+ if(!window.firebaseAuthCurrentUser||$("#system")?.style.display==="none")return;
+ const remaining=IDLE_TIMEOUT_MS-(Date.now()-lastUserActivity);
+ if(remaining<=0){logout("ออกจากระบบอัตโนมัติ เนื่องจากไม่มีการใช้งานเกิน 15 นาที");return}
+ idleTimeoutId=setTimeout(()=>scheduleIdleLogout(),remaining);
+}
+function recordUserActivity(){
+ if(!window.firebaseAuthCurrentUser||$("#system")?.style.display==="none")return;
+ lastUserActivity=Date.now();
+ scheduleIdleLogout();
+}
+["pointerdown","keydown","touchstart","scroll","click","input"].forEach(type=>window.addEventListener(type,recordUserActivity,{passive:true}));
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&window.firebaseAuthCurrentUser)scheduleIdleLogout()});
 const API_BASE_URL = window.DORM_API_BASE_URL || "";
 const apiUrl = u => API_BASE_URL.replace(/\/$/, "") + u;
 const $=s=>document.querySelector(s);
@@ -10,10 +28,10 @@ async function login(e){
   if(typeof window.firebaseAuthLogin!=="function") throw new Error("Firebase Authentication ยังโหลดไม่เสร็จ กรุณารีเฟรชหน้าเว็บ");
   await window.firebaseAuthLogin($("#email").value.trim(),$("#password").value);
   token=await window.firebaseAuthToken();
-  $("#password").value="";$("#login").style.display="none";$("#system").style.display="block";await show("dashboard");
+  lastUserActivity=Date.now();$("#password").value="";$("#login").style.display="none";$("#system").style.display="block";scheduleIdleLogout();await show("dashboard");
  } catch(err) { error.textContent=err?.code==="auth/invalid-credential"||err?.code==="auth/wrong-password"||err?.code==="auth/user-not-found"?"อีเมลหรือรหัสผ่านไม่ถูกต้อง":(err?.message||"เข้าสู่ระบบไม่สำเร็จ"); }
 }
-function logout(){if(window.firebaseAuthLogout)window.firebaseAuthLogout();token="";$("#system").style.display="none";$("#login").style.display="block";$("#password").value="";$("#loginError").textContent="";}
+function logout(reason=""){clearIdleLogout();if(window.firebaseAuthLogout)window.firebaseAuthLogout();token="";$("#system").style.display="none";$("#login").style.display="block";$("#password").value="";$("#loginError").textContent=reason;}
 function applyTheme(){const dark=localStorage.getItem("dorm_theme")==="dark";document.body.classList.toggle("dark",dark);const b=$("#themeToggle");if(b)b.textContent=dark?"☀️":"🌙"}
 function toggleTheme(){const dark=!document.body.classList.contains("dark");localStorage.setItem("dorm_theme",dark?"dark":"light");applyTheme()}
 applyTheme()
@@ -112,7 +130,7 @@ async function downloadPaidBill(id){const popup=window.open("about:blank","_blan
 async function deleteBill(id){const all=await get("/api/bills");const bill=all.find(x=>String(x.id)===String(id));if(!bill){alert("ไม่พบบิลนี้");return}let payload={};if(bill.status==="ชำระแล้ว"){const typed=prompt("บิลนี้ชำระแล้ว หากเป็นบิลทดลองและต้องการลบ ให้พิมพ์คำว่า ลบบิลทดลอง");if(typed===null)return;if(typed.trim()!=="ลบบิลทดลอง"){alert("คำยืนยันไม่ตรง ยกเลิกการลบบิลแล้ว");return}if(!confirm("ยืนยันลบบิลที่ชำระแล้ว รวมถึงประวัติการชำระเงินของบิลนี้ใช่ไหม? การลบนี้ย้อนกลับไม่ได้"))return;payload.confirm_paid_delete="ลบบิลทดลอง"}else{if(!confirm("ต้องการลบบิลนี้ใช่ไหม? บิลที่ลบจะหายเฉพาะรายการนี้ค่ะ"))return}const r=await send("/api/bills/"+id,"DELETE",payload);if(!r.ok){alert(r.error||"ลบบิลไม่สำเร็จ");return}alert("ลบบิลเรียบร้อยแล้ว");await bills()}
 async function payBill(id,total){const a=prompt("จำนวนเงิน (ต้องเท่ากับยอดบิลเต็มจำนวน)",total);if(a===null)return;const r=await send("/api/bills/"+id+"/pay","POST",{amount:Number(a),method:"เงินสด"});if(!r.ok){alert(r.error||"บันทึกการชำระเงินไม่สำเร็จ");return}alert("บันทึกการชำระเงินแล้ว");await bills()}
 async function sendBill(id){const r=await send("/api/line/send-bill","POST",{bill_id:id});alert(r.ok?"ส่งบิลทาง LINE แล้ว":"ส่งไม่ได้: "+(r.error||"ตรวจสอบการตั้งค่า LINE"))}
-window.addEventListener("firebase-auth-ready",async()=>{if(window.firebaseAuthCurrentUser){try{token=await window.firebaseAuthToken();$("#login").style.display="none";$("#system").style.display="block";await show("dashboard")}catch{logout()}}});
+window.addEventListener("firebase-auth-ready",async()=>{if(window.firebaseAuthCurrentUser){try{token=await window.firebaseAuthToken();$("#login").style.display="none";$("#system").style.display="block";if(!lastUserActivity||Date.now()-lastUserActivity>=IDLE_TIMEOUT_MS)lastUserActivity=Date.now();scheduleIdleLogout();await show("dashboard")}catch{logout()}}else{clearIdleLogout()}});
 async function settings(){
  const [a,tenants]=await Promise.all([get("/api/settings"),get("/api/tenants")]);
  const s=Object.fromEntries(a.map(x=>[x.key,x.value]));const pending=Array.isArray(s.pending_line_users)?s.pending_line_users:[];
