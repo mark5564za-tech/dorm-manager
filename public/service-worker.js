@@ -1,4 +1,4 @@
-const CACHE_NAME = "dorm-manager-shell-v1";
+const CACHE_NAME = "dorm-manager-shell-v2";
 const APP_SHELL = [
   "/",
   "/index.html",
