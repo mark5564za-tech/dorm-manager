@@ -71,3 +71,6 @@ button{white-space:normal;overflow-wrap:anywhere}
  .cards,.dashboard-cards,.room-grid{grid-template-columns:minmax(0,1fr)}
  .dashboard-cards .card{min-height:70px}
 }
+
+/* Current signed-in account indicator */
+.current-user-badge{display:flex;align-items:center;gap:10px;margin-left:auto;padding:7px 12px;border:1px solid #e7ded4;border-radius:12px;background:#faf7f2;color:#493626;max-width:min(340px,42vw)}.current-user-icon{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#e8d8c5;color:#735238;font-size:12px}.current-user-badge small,.current-user-badge strong{display:block}.current-user-badge small{font-size:10px;color:#8a7969;line-height:1.3}.current-user-badge strong{font-size:13px;overflow-wrap:anywhere}body.dark .current-user-badge{background:#302720;border-color:#5a4635;color:#f2dfc9}body.dark .current-user-icon{background:#57432f;color:#f2dfc9}body.dark .current-user-badge small{color:#c2b09d}@media(max-width:600px){.current-user-badge{margin-left:0;max-width:100%;order:3}#system>header{align-items:center}}

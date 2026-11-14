@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="Dorm Manager">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=20261114-current-user">
 </head>
 <body>
 <div id="login" class="login-box">
@@ -18,7 +18,7 @@
 <form onsubmit="login(event)"><label>อีเมลผู้ดูแล<input id="email" type="email" autocomplete="username" placeholder="admin@manager.com" required></label><label>รหัสผ่าน Firebase<input id="password" type="password" autocomplete="current-password" required></label><button type="submit">เข้าสู่ระบบ</button></form><p id="loginError" class="bad"></p>
 </div>
 <div id="system" style="display:none">
-<header><h1>🏠 Dorm Manager</h1><span>ระบบจัดการหอพักส่วนตัว</span><button id="installAppButton" type="button" hidden>ติดตั้งแอป</button><button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="สลับโหมด">🌙</button></header>
+<header><h1>🏠 Dorm Manager</h1><span>ระบบจัดการหอพักส่วนตัว</span><div id="currentUserBadge" class="current-user-badge" hidden><span class="current-user-icon">●</span><span><small>กำลังเข้าสู่ระบบ</small><strong id="currentUserEmail">—</strong></span></div><button id="installAppButton" type="button" hidden>ติดตั้งแอป</button><button id="themeToggle" class="theme-toggle" onclick="toggleTheme()" title="สลับโหมด">🌙</button></header>
 <nav class="sidebar">
 <div class="sidebar-brand"><span class="brand-mark">⌂</span><div><strong>R&m HOUSE</strong><small>Dorm Manager</small></div></div>
 <button class="nav-item active" data-page="dashboard" onclick="show('dashboard')"><span>⌂</span>ภาพรวม</button><button class="nav-item" data-page="rooms" onclick="show('rooms')"><span>▦</span>ห้องพัก</button>
@@ -28,8 +28,19 @@
 </div>
 <script type="module" src="firebase-auth.js"></script>
 <script src="api-config.js?v=20261103"></script>
-<script src="app.js?v=20261113-sidebar-active"></script>
+<script src="app.js?v=20261114-current-user"></script>
 <script>
+function refreshCurrentUserBadge() {
+  const badge = document.getElementById("currentUserBadge");
+  const email = document.getElementById("currentUserEmail");
+  const user = window.firebaseAuthCurrentUser;
+  if (badge && email) {
+    email.textContent = user?.email || "ไม่ทราบอีเมล";
+    badge.hidden = !user;
+  }
+}
+window.addEventListener("firebase-auth-ready", refreshCurrentUserBadge);
+window.addEventListener("DOMContentLoaded", refreshCurrentUserBadge);
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/service-worker.js").catch(error => {
